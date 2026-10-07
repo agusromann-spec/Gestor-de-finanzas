@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Finanzas Personal</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: '#111827',
+                        cardbg: '#1f2937',
+                        carddark: '#161e2e',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS for Excel Export -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 dark:bg-darkbg text-gray-800 dark:text-gray-100 min-h-screen font-sans transition-colors duration-300">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-white dark:bg-cardbg border-b border-gray-200 dark:border-gray-800 px-6 py-4 flex flex-wrap justify-between items-center gap-4 shadow-sm sticky top-0 z-40">
+        <div class="flex items-center gap-3">
+            <div class="bg-emerald-600 text-white p-2.5 rounded-xl shadow-md flex items-center justify-center">
+                <i class="fa-solid fa-chart-line text-lg"></i>
+            </div>
+            <div>
+                <h1 class="text-lg font-bold tracking-tight uppercase flex items-center gap-2">
+                    GESTOR DE FINANZAS PERSONAL <span class="text-xs bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full font-semibold border border-emerald-500/30">PRO</span>
+                </h1>
+                <p class="text-xs text-gray-500 dark:text-gray-400">Hola, <span id="userNameDisplay" class="font-medium text-gray-700 dark:text-gray-300">agustin</span></p>
+            </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3">
+            <button onclick="openHelpModal()" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 p-2.5 rounded-xl transition text-xs font-semibold flex items-center gap-1.5" title="Guía de ayuda">
+                <i class="fa-solid fa-circle-question text-emerald-500"></i> <span class="hidden sm:inline">Ayuda</span>
+            </button>
+            <button onclick="openTransactionModal('Gasto')" class="bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition shadow-sm flex items-center gap-2">
+                <i class="fa-solid fa-circle-minus"></i> + Registrar Gasto
+            </button>
+            <button onclick="openTransactionModal('Ingreso')" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition shadow-sm flex items-center gap-2">
+                <i class="fa-solid fa-circle-plus"></i> + Registrar Ingreso
+            </button>
+            <button onclick="openConfigModal()" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-xs font-semibold px-4 py-2.5 rounded-xl transition flex items-center gap-2">
+                <i class="fa-solid fa-sliders"></i> Configuración
+            </button>
+            <button onclick="exportToExcelPro()" class="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition shadow-sm flex items-center gap-2">
+                <i class="fa-solid fa-file-excel"></i> Excel Pro
+            </button>
+            
+            <!-- Botón de Tema (Claro / Oscuro) -->
+            <button onclick="toggleTheme()" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 p-2.5 rounded-xl transition text-sm" title="Cambiar Tema">
+                <i id="themeIcon" class="fa-solid fa-moon dark:fa-sun"></i>
+            </button>
+
+            <select id="currencySelect" onchange="updateCurrency()" class="bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-xs font-semibold rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                <option value="ARS">$ (ARS)</option>
+                <option value="USD">US$ (USD)</option>
+                <option value="EUR">€ (EUR)</option>
+            </select>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+
+        <!-- Top Stats Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <!-- Ingreso Base -->
+            <div class="bg-white dark:bg-cardbg p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm relative overflow-hidden flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-start text-gray-500 dark:text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">
+                        <span>Ingreso Base</span>
+                        <i class="fa-solid fa-wallet text-emerald-500 text-base"></i>
+                    </div>
+                    <div id="statBaseIncome" class="text-2xl font-black tracking-tight text-gray-900 dark:text-white">$ 1.000.000,00</div>
+                </div>
+                <div class="text-[11px] text-gray-400 mt-3 pt-2 border-t border-gray-100 dark:border-gray-800">Configurado inicial</div>
+            </div>
+
+            <!-- Ingresos Extras -->
+            <div class="bg-white dark:bg-cardbg p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm relative overflow-hidden flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-start text-gray-500 dark:text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">
+                        <span>Ingresos Extras</span>
+                        <i class="fa-solid fa-arrow-trend-up text-emerald-500 text-base"></i>
+                    </div>
+                    <div id="statExtraIncome" class="text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400">$ 34.000,00</div>
+                </div>
+                <div id="statExtraCount" class="text-[11px] text-gray-400 mt-3 pt-2 border-t border-gray-100 dark:border-gray-800">1 movimientos</div>
+            </div>
+
+            <!-- Gastos Totales -->
+            <div class="bg-white dark:bg-cardbg p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm relative overflow-hidden flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-start text-gray-500 dark:text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">
+                        <span>Gastos Totales</span>
+                        <i class="fa-solid fa-arrow-trend-down text-rose-500 text-base"></i>
+                    </div>
+                    <div id="statTotalExpenses" class="text-2xl font-black tracking-tight text-rose-600 dark:text-rose-400">$ 0,00</div>
+                </div>
+                <div id="statExpensePercent" class="text-[11px] text-rose-500 font-medium mt-3 pt-2 border-t border-gray-100 dark:border-gray-800">0.0% del disponible</div>
+            </div>
+
+            <!-- Saldo Disponible -->
+            <div class="bg-white dark:bg-cardbg p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm relative overflow-hidden flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-start text-gray-500 dark:text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">
+                        <span>Saldo Disponible</span>
+                        <i class="fa-solid fa-vault text-cyan-500 text-base"></i>
+                    </div>
+                    <div id="statAvailableBalance" class="text-2xl font-black tracking-tight text-gray-900 dark:text-white">$ 1.034.000,00</div>
+                </div>
+                <div class="text-[11px] text-gray-400 mt-3 pt-2 border-t border-gray-100 dark:border-gray-800">Base + Extras - Gastos</div>
+            </div>
+
+            <!-- Saldo Proyectado -->
+            <div class="bg-white dark:bg-cardbg p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm relative overflow-hidden flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-start text-gray-500 dark:text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">
+                        <span>Saldo Proyectado</span>
+                        <i class="fa-solid fa-calculator text-amber-500 text-base"></i>
+                    </div>
+                    <div id="statProjectedBalance" class="text-2xl font-black tracking-tight text-amber-600 dark:text-amber-400">$ 1.023.000,00</div>
+                </div>
+                <div class="text-[11px] text-amber-500 mt-3 pt-2 border-t border-gray-100 dark:border-gray-800">Restando Vencimientos</div>
+            </div>
+        </div>
+
+        <!-- Middle Row: Classification & Cashflow Chart -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Clasificación de Gastos (Doughnut) -->
+            <div class="bg-white dark:bg-cardbg p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex flex-col justify-between">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-chart-pie text-emerald-500"></i> Clasificación de Gastos
+                    </h2>
+                    <button onclick="openCategoryModal()" class="text-xs bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 px-3 py-1.5 rounded-lg font-semibold transition">
+                        + Categoría
+                    </button>
+                </div>
+                <div class="relative h-64 flex items-center justify-center">
+                    <canvas id="expensesDoughnutChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Comparativa de Flujo de Caja (Bar Chart) -->
+            <div class="bg-white dark:bg-cardbg p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex flex-col justify-between">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-chart-column text-emerald-500"></i> Comparativa de Flujo de Caja
+                    </h2>
+                    <div class="flex items-center gap-3 text-xs text-gray-400">
+                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 bg-emerald-500 rounded-full"></span> Disponibles</span>
+                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 bg-rose-500 rounded-full"></span> Gastos</span>
+                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 bg-cyan-500 rounded-full"></span> Ahorro</span>
+                    </div>
+                </div>
+                <div class="relative h-64">
+                    <canvas id="cashflowBarChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lower Middle Row: 50/30/20 & Savings Goals -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Salud Financiera 50/30/20 -->
+            <div class="bg-white dark:bg-cardbg p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm space-y-4">
+                <div>
+                    <h2 class="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-scale-balanced text-emerald-500"></i> Salud Financiera 50/30/20
+                    </h2>
+                    <p class="text-xs text-gray-400 mt-1">Calculado sobre tu disponible total actual.</p>
+                </div>
+
+                <div class="space-y-3 pt-2">
+                    <div>
+                        <div class="flex justify-between text-xs font-semibold mb-1">
+                            <span>Necesidades Básicas (50%)</span>
+                            <span id="rule50val">$ 0,00 / $ 517.000,00</span>
+                        </div>
+                        <div class="w-full bg-gray-200 dark:bg-gray-700 h-2 rounded-full overflow-hidden">
+                            <div id="rule50bar" class="bg-emerald-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between text-xs font-semibold mb-1">
+                            <span>Deseos y Ocio (30%)</span>
+                            <span id="rule30val">$ 0,00 / $ 310.200,00</span>
+                        </div>
+                        <div class="w-full bg-gray-200 dark:bg-gray-700 h-2 rounded-full overflow-hidden">
+                            <div id="rule30bar" class="bg-cyan-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between text-xs font-semibold mb-1">
+                            <span>Ahorro e Inversión (20%)</span>
+                            <span id="rule20val">$ 206.800,00</span>
+                        </div>
+                        <div class="w-full bg-gray-200 dark:bg-gray-700 h-2 rounded-full overflow-hidden">
+                            <div class="bg-amber-500 h-full rounded-full" style="width: 100%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Metas de Ahorro e Inversión -->
+            <div class="bg-white dark:bg-cardbg p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex flex-col justify-between">
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <h2 class="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                            <i class="fa-solid fa-bullseye text-emerald-500"></i> Metas de Ahorro e Inversión
+                        </h2>
+                        <p class="text-xs text-gray-400 mt-1">Aporta o retira fondos cuando lo necesites.</p>
+                    </div>
+                    <button onclick="openGoalModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-2 rounded-xl transition shadow-sm">
+                        + Nueva Meta
+                    </button>
+                </div>
+                <div id="goalsContainer" class="space-y-3 py-2">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Agenda de Vencimientos & Gastos Futuros -->
+        <div class="bg-white dark:bg-cardbg p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm space-y-4">
+            <div class="flex flex-wrap justify-between items-center gap-4">
+                <div>
+                    <h2 class="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-calendar-days text-emerald-500"></i> Agenda de Vencimientos & Gastos Futuros
+                    </h2>
+                    <p class="text-xs text-gray-400 mt-1">Sincroniza tus facturas con Google Calendar para recibir alertas.</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button onclick="changeMonth(-1)" class="bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 w-8 h-8 rounded-lg flex items-center justify-center transition"><i class="fa-solid fa-chevron-left text-xs"></i></button>
+                    <span id="currentMonthLabel" class="text-xs font-bold uppercase tracking-wider w-28 text-center">Octubre 2026</span>
+                    <button onclick="changeMonth(1)" class="bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 w-8 h-8 rounded-lg flex items-center justify-center transition"><i class="fa-solid fa-chevron-right text-xs"></i></button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-2">
+                <!-- Programar Vencimiento Form -->
+                <div class="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700/50 space-y-3">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Programar Vencimiento</h3>
+                    <div>
+                        <label class="block text-[11px] font-medium text-gray-400 mb-1">Concepto</label>
+                        <input type="text" id="dueConcept" placeholder="Ej: Luz, Tarjeta, Alquiler" class="w-full bg-white dark:bg-cardbg border border-gray-300 dark:border-gray-700 text-xs rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[11px] font-medium text-gray-400 mb-1">Monto</label>
+                            <input type="number" id="dueAmount" placeholder="0.00" class="w-full bg-white dark:bg-cardbg border border-gray-300 dark:border-gray-700 text-xs rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-medium text-gray-400 mb-1">Fecha</label>
+                            <input type="date" id="dueDate" value="2026-10-08" class="w-full bg-white dark:bg-cardbg border border-gray-300 dark:border-gray-700 text-xs rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                        </div>
+                    </div>
+                    <button onclick="addDueDateItem()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold py-2.5 rounded-xl transition shadow-sm">
+                        Agendar Vencimiento
+                    </button>
+                </div>
+
+                <!-- Calendar Grid View -->
+                <div class="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700/50">
+                    <div class="grid grid-cols-7 gap-1 text-center text-[11px] font-bold text-gray-400 mb-2">
+                        <span>Dom</span><span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span>
+                    </div>
+                    <div id="calendarDaysGrid" class="grid grid-cols-7 gap-1 text-center text-xs">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Próximos a Vencer -->
+                <div class="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700/50 space-y-3 flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-xs font-bold uppercase tracking-wider mb-3">Próximos a Vencer</h3>
+                        <div id="dueListContainer" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Historial de Movimientos -->
+        <div class="bg-white dark:bg-cardbg p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm space-y-4">
+            <div class="flex flex-wrap justify-between items-center gap-4">
+                <div class="flex items-center gap-3">
+                    <h2 class="text-sm font-bold uppercase tracking-wider">Historial de Movimientos</h2>
+                    <span id="movementCountBadge" class="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-xs font-semibold px-2.5 py-0.5 rounded-full">1 registros</span>
+                </div>
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400 text-xs"></i>
+                        <input type="text" id="searchInput" oninput="renderMovements()" placeholder="Buscar concepto..." class="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-xs rounded-xl pl-9 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 w-48 sm:w-64">
+                    </div>
+                    <select id="filterType" onchange="renderMovements()" class="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                        <option value="Todos">Todos los tipos</option>
+                        <option value="Ingreso">Ingreso</option>
+                        <option value="Gasto">Gasto</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                    <thead class="bg-gray-50 dark:bg-gray-800/50 uppercase text-[10px] tracking-wider text-gray-400 border-b border-gray-200 dark:border-gray-800">
+                        <tr>
+                            <th class="py-3 px-4">Fecha</th>
+                            <th class="py-3 px-4">Concepto</th>
+                            <th class="py-3 px-4">Categoría</th>
+                            <th class="py-3 px-4 text-right">Monto</th>
+                            <th class="py-3 px-4 text-center">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="movementsTableBody" class="divide-y divide-gray-100 dark:divide-gray-800">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal Guía de Ayuda (Onboarding) -->
+    <div id="helpModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-white dark:bg-cardbg w-full max-w-2xl p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-gray-200 dark:border-gray-800 pb-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 p-2 rounded-xl">
+                        <i class="fa-solid fa-circle-question text-lg"></i>
+                    </div>
+                    <h3 class="text-sm font-bold uppercase tracking-wider">Guía de Uso - Gestor de Finanzas Personal</h3>
+                </div>
+                <button onclick="closeHelpModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            
+            <div class="space-y-4 text-xs text-gray-600 dark:text-gray-300">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700 space-y-1.5">
+                        <h4 class="font-bold text-gray-900 dark:text-white flex items-center gap-2"><span class="w-5 h-5 bg-emerald-600 text-white rounded-full flex items-center justify-center text-[10px]">1</span> Configuración Inicial</h4>
+                        <p>Haz clic en <strong>Configuración</strong> para definir tu nombre, tu Ingreso Base mensual y elegir tu moneda (ARS, USD, EUR).</p>
+                    </div>
+                    <div class="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700 space-y-1.5">
+                        <h4 class="font-bold text-gray-900 dark:text-white flex items-center gap-2"><span class="w-5 h-5 bg-emerald-600 text-white rounded-full flex items-center justify-center text-[10px]">2</span> Registrar Transacciones</h4>
+                        <p>Usa los botones <strong>+ Registrar Gasto</strong> o <strong>+ Registrar Ingreso</strong> para cargar tus movimientos diarios y mantener tus saldos actualizados.</p>
+                    </div>
+                    <div class="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700 space-y-1.5">
+                        <h4 class="font-bold text-gray-900 dark:text-white flex items-center gap-2"><span class="w-5 h-5 bg-emerald-600 text-white rounded-full flex items-center justify-center text-[10px]">3</span> Metas de Ahorro</h4>
+                        <p>Crea objetivos financieros y utiliza los botones <strong>+ Aportar</strong> o <strong>- Retirar</strong> para gestionar el dinero acumulado en cada meta.</p>
+                    </div>
+                    <div class="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700 space-y-1.5">
+                        <h4 class="font-bold text-gray-900 dark:text-white flex items-center gap-2"><span class="w-5 h-5 bg-emerald-600 text-white rounded-full flex items-center justify-center text-[10px]">4</span> Vencimientos y Google Calendar</h4>
+                        <p>Programa facturas y haz clic en el icono de calendario para agendarlas de inmediato en tu <strong>Google Calendar</strong>.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-2">
+                <button onclick="closeHelpModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-5 py-2.5 rounded-xl transition shadow-sm">
+                    ¡Entendido, Comenzar!
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Transacción -->
+    <div id="transactionModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-white dark:bg-cardbg w-full max-w-md p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 id="modalTitle" class="text-sm font-bold uppercase tracking-wider">Registrar Movimiento</h3>
+                <button onclick="closeTransactionModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Tipo</label>
+                    <select id="txType" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-xs rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                        <option value="Ingreso">Ingreso</option>
+                        <option value="Gasto">Gasto</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Concepto</label>
+                    <input type="text" id="txConcept" placeholder="Ej: Trabajo Freelance, Supermercado" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-xs rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Categoría</label>
+                    <select id="txCategory" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-xs rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                        <option value="Salario">Salario</option>
+                        <option value="Ingreso Adicional">Ingreso Adicional</option>
+                        <option value="Necesidades Básicas">Necesidades Básicas</option>
+                        <option value="Deseos y Ocio">Deseos y Ocio</option>
+                        <option value="Servicios">Servicios</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">Monto</label>
+                        <input type="number" id="txAmount" placeholder="0.00" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-xs rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">Fecha</label>
+                        <input type="date" id="txDate" value="2026-10-07" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-xs rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 pt-2">
+                <button onclick="closeTransactionModal()" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-xs font-semibold px-4 py-2.5 rounded-xl transition">Cancelar</button>
+                <button onclick="saveTransaction()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition shadow-sm">Guardar Movimiento</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Configuración -->
+    <div id="configModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-white dark:bg-cardbg w-full max-w-md p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-sm font-bold uppercase tracking-wider">Configuración General</h3>
+                <button onclick="closeConfigModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Nombre de Usuario</label>
+                    <input type="text" id="configUserName" value="agustin" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-xs rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Ingreso Base Mensual</label>
+                    <input type="number" id="configBaseIncome" value="1000000" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-xs rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 pt-2">
+                <button onclick="closeConfigModal()" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-xs font-semibold px-4 py-2.5 rounded-xl transition">Cancelar</button>
+                <button onclick="saveConfig()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition shadow-sm">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Nueva Meta -->
+    <div id="goalModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-white dark:bg-cardbg w-full max-w-md p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-sm font-bold uppercase tracking-wider">Nueva Meta de Ahorro</h3>
+                <button onclick="closeGoalModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Nombre de la Meta</label>
+                    <input type="text" id="goalTitle" placeholder="Ej: Fondo de Emergencia, Vacaciones" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-xs rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Monto Objetivo</label>
+                    <input type="number" id="goalTarget" placeholder="0.00" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-xs rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 pt-2">
+                <button onclick="closeGoalModal()" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-xs font-semibold px-4 py-2.5 rounded-xl transition">Cancelar</button>
+                <button onclick="saveGoal()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition shadow-sm">Crear Meta</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Categoría -->
+    <div id="categoryModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-white dark:bg-cardbg w-full max-w-md p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-sm font-bold uppercase tracking-wider">Nueva Categoría de Gasto</h3>
+                <button onclick="closeCategoryModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Nombre de la Categoría</label>
+                    <input type="text" id="newCategoryName" placeholder="Ej: Educación, Suscripciones" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-xs rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 pt-2">
+                <button onclick="closeCategoryModal()" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-xs font-semibold px-4 py-2.5 rounded-xl transition">Cancelar</button>
+                <button onclick="saveCategory()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition shadow-sm">Agregar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript App Logic -->
+    <script>
+        // State
+        let state = {
+            userName: "agustin",
+            baseIncome: 1000000,
+            currency: "ARS",
+            currencySymbol: "$",
+            movements: [
+                { id: 1, date: "2026-10-05", concept: "Trabajo Freelance Diseño", category: "Ingreso Adicional", type: "Ingreso", amount: 34000 }
+            ],
+            dueDates: [
+                { id: 1, concept: "Luz", amount: 11000, date: "2026-10-08", paid: false }
+            ],
+            goals: [
+                { id: 1, title: "Fondo de Emergencia", target: 200000, current: 45000 }
+            ],
+            categories: ["Salario", "Ingreso Adicional", "Necesidades Básicas", "Deseos y Ocio", "Servicios"]
+        };
+
+        let currentMonthOffset = 0;
+        let doughnutChart = null;
+        let barChart = null;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            // Mostrar guía de ayuda automáticamente si es la primera vez
+            if (!localStorage.getItem('helpShown')) {
+                openHelpModal();
+                localStorage.setItem('helpShown', 'true');
+            }
+            updateUI();
+        });
+
+        // Theme Toggle Function
+        function toggleTheme() {
+            const html = document.documentElement;
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+            } else {
+                html.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        if (localStorage.getItem('theme') === 'light') {
+            document.documentElement.classList.remove('dark');
+        } else {
+            document.documentElement.classList.add('dark');
+        }
+
+        // Format Currency
+        function formatMoney(amount) {
+            return `${state.currencySymbol} ${amount.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        }
+
+        function updateCurrency() {
+            const sel = document.getElementById('currencySelect').value;
+            state.currency = sel;
+            state.currencySymbol = sel === 'ARS' ? '$' : (sel === 'USD' ? 'US$' : '€');
+            updateUI();
+        }
+
+        // Modals Control
+        function openHelpModal() {
+            document.getElementById('helpModal').classList.remove('hidden');
+            document.getElementById('helpModal').classList.add('flex');
+        }
+        function closeHelpModal() {
+            document.getElementById('helpModal').classList.remove('flex');
+            document.getElementById('helpModal').classList.add('hidden');
+        }
+
+        function openTransactionModal(type = 'Gasto') {
+            document.getElementById('txType').value = type;
+            document.getElementById('transactionModal').classList.remove('hidden');
+            document.getElementById('transactionModal').classList.add('flex');
+        }
+        function closeTransactionModal() {
+            document.getElementById('transactionModal').classList.remove('flex');
+            document.getElementById('transactionModal').classList.add('hidden');
+        }
+
+        function openConfigModal() {
+            document.getElementById('configUserName').value = state.userName;
+            document.getElementById('configBaseIncome').value = state.baseIncome;
+            document.getElementById('configModal').classList.remove('hidden');
+            document.getElementById('configModal').classList.add('flex');
+        }
+        function closeConfigModal() {
+            document.getElementById('configModal').classList.remove('flex');
+            document.getElementById('configModal').classList.add('hidden');
+        }
+
+        function openGoalModal() {
+            document.getElementById('goalModal').classList.remove('hidden');
+            document.getElementById('goalModal').classList.add('flex');
+        }
+        function closeGoalModal() {
+            document.getElementById('goalModal').classList.remove('flex');
+            document.getElementById('goalModal').classList.add('hidden');
+        }
+
+        function openCategoryModal() {
+            document.getElementById('categoryModal').classList.remove('hidden');
+            document.getElementById('categoryModal').classList.add('flex');
+        }
+        function closeCategoryModal() {
+            document.getElementById('categoryModal').classList.remove('flex');
+            document.getElementById('categoryModal').classList.add('hidden');
+        }
+
+        // Data Management
+        function saveConfig() {
+            state.userName = document.getElementById('configUserName').value || 'agustin';
+            state.baseIncome = parseFloat(document.getElementById('configBaseIncome').value) || 0;
+            document.getElementById('userNameDisplay').textContent = state.userName;
+            closeConfigModal();
+            updateUI();
+        }
+
+        function saveTransaction() {
+            const type = document.getElementById('txType').value;
+            const concept = document.getElementById('txConcept').value;
+            const category = document.getElementById('txCategory').value;
+            const amount = parseFloat(document.getElementById('txAmount').value);
+            const date = document.getElementById('txDate').value;
+
+            if (!concept || isNaN(amount) || amount <= 0) {
+                alert("Por favor completa los campos correctamente.");
+                return;
+            }
+
+            state.movements.push({ id: Date.now(), type, concept, category, amount, date });
+            closeTransactionModal();
+            document.getElementById('txConcept').value = '';
+            document.getElementById('txAmount').value = '';
+            updateUI();
+        }
+
+        function deleteMovement(id) {
+            state.movements = state.movements.filter(m => m.id !== id);
+            updateUI();
+        }
+
+        function addDueDateItem() {
+            const concept = document.getElementById('dueConcept').value;
+            const amount = parseFloat(document.getElementById('dueAmount').value);
+            const date = document.getElementById('dueDate').value;
+
+            if (!concept || isNaN(amount) || amount <= 0) {
+                alert("Completa los datos del vencimiento.");
+                return;
+            }
+
+            state.dueDates.push({ id: Date.now(), concept, amount, date, paid: false });
+            document.getElementById('dueConcept').value = '';
+            document.getElementById('dueAmount').value = '';
+            updateUI();
+        }
+
+        function toggleDuePaid(id) {
+            const item = state.dueDates.find(d => d.id === id);
+            if (item) {
+                item.paid = !item.paid;
+                if (item.paid) {
+                    state.movements.push({
+                        id: Date.now(),
+                        type: "Gasto",
+                        concept: `Pago Vencimiento: ${item.concept}`,
+                        category: "Servicios",
+                        amount: item.amount,
+                        date: new Date().toISOString().split('T')[0]
+                    });
+                }
+                updateUI();
+            }
+        }
+
+        function deleteDueDate(id) {
+            state.dueDates = state.dueDates.filter(d => d.id !== id);
+            updateUI();
+        }
+
+        function saveGoal() {
+            const title = document.getElementById('goalTitle').value;
+            const target = parseFloat(document.getElementById('goalTarget').value);
+            if (!title || isNaN(target) || target <= 0) return;
+
+            state.goals.push({ id: Date.now(), title, target, current: 0 });
+            document.getElementById('goalTitle').value = '';
+            document.getElementById('goalTarget').value = '';
+            closeGoalModal();
+            updateUI();
+        }
+
+        function contributeToGoal(id) {
+            const amountStr = prompt("Monto a aportar a esta meta:");
+            const amount = parseFloat(amountStr);
+            if (!isNaN(amount) && amount > 0) {
+                const goal = state.goals.find(g => g.id === id);
+                if (goal) {
+                    goal.current += amount;
+                    updateUI();
+                }
+            }
+        }
+
+        function withdrawFromGoal(id) {
+            const amountStr = prompt("Monto a retirar de esta meta:");
+            const amount = parseFloat(amountStr);
+            if (!isNaN(amount) && amount > 0) {
+                const goal = state.goals.find(g => g.id === id);
+                if (goal) {
+                    goal.current = Math.max(0, goal.current - amount);
+                    updateUI();
+                }
+            }
+        }
+
+        function deleteGoal(id) {
+            state.goals = state.goals.filter(g => g.id !== id);
+            updateUI();
+        }
+
+        function saveCategory() {
+            const name = document.getElementById('newCategoryName').value;
+            if (name && !state.categories.includes(name)) {
+                state.categories.push(name);
+                const catSelect = document.getElementById('txCategory');
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                catSelect.appendChild(opt);
+            }
+            document.getElementById('newCategoryName').value = '';
+            closeCategoryModal();
+        }
+
+        // Calendar Navigation
+        function changeMonth(dir) {
+            currentMonthOffset += dir;
+            updateCalendar();
+        }
+
+        function updateCalendar() {
+            const baseDate = new Date(2026, 9 + currentMonthOffset, 1);
+            const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+            document.getElementById('currentMonthLabel').textContent = `${monthNames[baseDate.getMonth()]} ${baseDate.getFullYear()}`;
+
+            const grid = document.getElementById('calendarDaysGrid');
+            grid.innerHTML = '';
+
+            const firstDayIndex = new Date(baseDate.getFullYear(), baseDate.getMonth(), 1).getDay();
+            const totalDays = new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 0).getDate();
+
+            for (let i = 0; i < firstDayIndex; i++) {
+                grid.innerHTML += `<div></div>`;
+            }
+
+            for (let day = 1; day <= totalDays; day++) {
+                const dayStr = String(day).padStart(2, '0');
+                const monthStr = String(baseDate.getMonth() + 1).padStart(2, '0');
+                const fullDate = `${baseDate.getFullYear()}-${monthStr}-${dayStr}`;
+
+                const hasDue = state.dueDates.some(d => d.date === fullDate && !d.paid);
+                const isSelected = day === 8 && baseDate.getMonth() === 9 && baseDate.getFullYear() === 2026;
+
+                let cls = "p-1.5 rounded-lg text-xs font-medium transition cursor-pointer flex flex-col items-center justify-center h-8 ";
+                if (isSelected) {
+                    cls += "bg-rose-600 text-white font-bold";
+                } else if (hasDue) {
+                    cls += "bg-amber-500/20 text-amber-500 font-bold border border-amber-500/40";
+                } else {
+                    cls += "hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300";
+                }
+
+                grid.innerHTML += `<div class="${cls}">${day}</div>`;
+            }
+        }
+
+        // Google Calendar Link generator
+        function getGoogleCalendarUrl(item) {
+            const text = encodeURIComponent(`Vencimiento: ${item.concept}`);
+            const details = encodeURIComponent(`Pago pendiente de ${formatMoney(item.amount)} gestionado desde el Gestor de Finanzas Personal.`);
+            const dates = `${item.date.replace(/-/g, '')}/${item.date.replace(/-/g, '')}`;
+            return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${text}&details=${details}&dates=${dates}`;
+        }
+
+        // Excel Export Pro
+        function exportToExcelPro() {
+            const wb = XLSX.utils.book_new();
+            
+            const movData = state.movements.map(m => ({
+                Fecha: m.date,
+                Concepto: m.concept,
+                Categoría: m.category,
+                Tipo: m.type,
+                Monto: m.amount
+            }));
+            const wsMov = XLSX.utils.json_to_sheet(movData);
+            XLSX.utils.book_append_sheet(wb, wsMov, "Movimientos");
+
+            const dueData = state.dueDates.map(d => ({
+                Concepto: d.concept,
+                Monto: d.amount,
+                Fecha: d.date,
+                Pagado: d.paid ? "Sí" : "No"
+            }));
+            const wsDue = XLSX.utils.json_to_sheet(dueData);
+            XLSX.utils.book_append_sheet(wb, wsDue, "Vencimientos");
+
+            XLSX.writeFile(wb, "Gestor_Finanzas_Personal_Reporte.xlsx");
+        }
+
+        // Update UI Calculations & Rendering
+        function updateUI() {
+            let totalExtraIncome = 0;
+            let totalExpenses = 0;
+            let expenseCategories = {};
+
+            state.movements.forEach(m => {
+                if (m.type === 'Ingreso') {
+                    totalExtraIncome += m.amount;
+                } else {
+                    totalExpenses += m.amount;
+                    expenseCategories[m.category] = (expenseCategories[m.category] || 0) + m.amount;
+                }
+            });
+
+            const totalAvailable = state.baseIncome + totalExtraIncome - totalExpenses;
+            let totalPendingDue = state.dueDates.filter(d => !d.paid).reduce((acc, d) => acc + d.amount, 0);
+            const projectedBalance = totalAvailable - totalPendingDue;
+
+            document.getElementById('statBaseIncome').textContent = formatMoney(state.baseIncome);
+            document.getElementById('statExtraIncome').textContent = formatMoney(totalExtraIncome);
+            document.getElementById('statExtraCount').textContent = `${state.movements.filter(m => m.type === 'Ingreso').length} movimientos`;
+            document.getElementById('statTotalExpenses').textContent = formatMoney(totalExpenses);
+            
+            const expensePct = state.baseIncome > 0 ? ((totalExpenses / state.baseIncome) * 100).toFixed(1) : 0;
+            document.getElementById('statExpensePercent').textContent = `${expensePct}% del disponible`;
+            document.getElementById('statAvailableBalance').textContent = formatMoney(totalAvailable);
+            document.getElementById('statProjectedBalance').textContent = formatMoney(projectedBalance);
+
+            // 50/30/20 Rule
+            const limit50 = totalAvailable * 0.50;
+            const limit30 = totalAvailable * 0.30;
+            const spentBasic = expenseCategories['Necesidades Básicas'] || 0;
+            const spentDesire = expenseCategories['Deseos y Ocio'] || 0;
+
+            document.getElementById('rule50val').textContent = `${formatMoney(spentBasic)} / ${formatMoney(limit50)}`;
+            document.getElementById('rule50bar').style.width = `${Math.min(100, (spentBasic / (limit50 || 1)) * 100)}%`;
+
+            document.getElementById('rule30val').textContent = `${formatMoney(spentDesire)} / ${formatMoney(limit30)}`;
+            document.getElementById('rule30bar').style.width = `${Math.min(100, (spentDesire / (limit30 || 1)) * 100)}%`;
+
+            document.getElementById('rule20val').textContent = formatMoney(totalAvailable * 0.20);
+
+            // Render Due List
+            const dueListContainer = document.getElementById('dueListContainer');
+            if (state.dueDates.length === 0) {
+                dueListContainer.innerHTML = `<div class="text-gray-400 text-xs text-center py-4">No hay vencimientos agendados.</div>`;
+            } else {
+                dueListContainer.innerHTML = state.dueDates.map(d => `
+                    <div class="bg-white dark:bg-cardbg p-3 rounded-xl border border-gray-200 dark:border-gray-700/60 flex justify-between items-center gap-2">
+                        <div>
+                            <div class="font-semibold text-xs ${d.paid ? 'line-through text-gray-400' : ''}">${d.concept}</div>
+                            <div class="text-[11px] text-gray-400">${d.date}</div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-bold text-rose-500">${formatMoney(d.amount)}</span>
+                            <a href="${getGoogleCalendarUrl(d)}" target="_blank" class="bg-blue-600 hover:bg-blue-700 text-white text-[10px] px-2 py-1 rounded-lg transition" title="Agregar a Google Calendar">
+                                <i class="fa-solid fa-calendar-plus"></i>
+                            </a>
+                            <button onclick="toggleDuePaid(${d.id})" class="text-[10px] px-2 py-1 rounded-lg font-semibold ${d.paid ? 'bg-emerald-500/20 text-emerald-500' : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}">
+                                ${d.paid ? 'Pagado' : 'Marcar'}
+                            </button>
+                            <button onclick="deleteDueDate(${d.id})" class="text-gray-400 hover:text-rose-500"><i class="fa-solid fa-trash-can text-xs"></i></button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // Render Goals with Aportar / Retirar buttons
+            const goalsContainer = document.getElementById('goalsContainer');
+            if (state.goals.length === 0) {
+                goalsContainer.innerHTML = `<div class="text-gray-400 text-xs text-center py-4">No hay metas registradas.</div>`;
+            } else {
+                goalsContainer.innerHTML = state.goals.map(g => {
+                    const pct = Math.min(100, Math.round((g.current / g.target) * 100));
+                    return `
+                        <div class="bg-gray-50 dark:bg-gray-800/40 p-3 rounded-xl border border-gray-200 dark:border-gray-700/60 space-y-2">
+                            <div class="flex justify-between items-center text-xs font-semibold">
+                                <span>${g.title}</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-emerald-500">${pct}%</span>
+                                    <button onclick="deleteGoal(${g.id})" class="text-gray-400 hover:text-rose-500"><i class="fa-solid fa-trash-can text-xs"></i></button>
+                                </div>
+                            </div>
+                            <div class="text-[11px] text-gray-400">${formatMoney(g.current)} / ${formatMoney(g.target)}</div>
+                            <div class="w-full bg-gray-200 dark:bg-gray-700 h-2 rounded-full overflow-hidden">
+                                <div class="bg-emerald-500 h-full rounded-full transition-all" style="width: ${pct}%"></div>
+                            </div>
+                            <div class="flex justify-end gap-2 pt-1">
+                                <button onclick="withdrawFromGoal(${g.id})" class="bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 text-[10px] font-semibold px-2.5 py-1 rounded-lg transition">- Retirar</button>
+                                <button onclick="contributeToGoal(${g.id})" class="bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 text-[10px] font-semibold px-2.5 py-1 rounded-lg transition">+ Aportar</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            renderMovements();
+            updateCharts(totalAvailable, totalExpenses, totalAvailable * 0.20, expenseCategories);
+            updateCalendar();
+        }
+
+        // Render Movements Table
+        function renderMovements() {
+            const tbody = document.getElementById('movementsTableBody');
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const filter = document.getElementById('filterType').value;
+
+            const filtered = state.movements.filter(m => {
+                const matchSearch = m.concept.toLowerCase().includes(search);
+                const matchFilter = filter === 'Todos' || m.type === filter;
+                return matchSearch && matchFilter;
+            });
+
+            document.getElementById('movementCountBadge').textContent = `${filtered.length} registros`;
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="py-6 text-center text-gray-400 text-xs">No se encontraron movimientos.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(m => `
+                <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition">
+                    <td class="py-3 px-4 text-gray-400">${m.date}</td>
+                    <td class="py-3 px-4 font-medium">${m.concept}</td>
+                    <td class="py-3 px-4"><span class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-lg text-[11px]">${m.category}</span></td>
+                    <td class="py-3 px-4 text-right font-bold ${m.type === 'Ingreso' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">
+                        ${m.type === 'Ingreso' ? '+' : '-'} ${formatMoney(m.amount)}
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                        <button onclick="deleteMovement(${m.id})" class="text-gray-400 hover:text-rose-500 transition"><i class="fa-solid fa-trash-can"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Charts update
+        function updateCharts(available, expenses, savings, categories) {
+            const ctxDoughnut = document.getElementById('expensesDoughnutChart').getContext('2d');
+            const catLabels = Object.keys(categories);
+            const catValues = Object.values(categories);
+
+            if (doughnutChart) doughnutChart.destroy();
+            doughnutChart = new Chart(ctxDoughnut, {
+                type: 'doughnut',
+                data: {
+                    labels: catLabels.length > 0 ? catLabels : ['Sin Gastos'],
+                    datasets: [{
+                        data: catValues.length > 0 ? catValues : [1],
+                        backgroundColor: catValues.length > 0 ? ['#10b981', '#06b6d4', '#f59e0b', '#ec4899', '#8b5cf6'] : ['#374151'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }
+                }
+            });
+
+            const ctxBar = document.getElementById('cashflowBarChart').getContext('2d');
+            if (barChart) barChart.destroy();
+            barChart = new Chart(ctxBar, {
+                type: 'bar',
+                data: {
+                    labels: ['Fondos Disponibles', 'Gastos Realizados', 'Ahorro / Metas'],
+                    datasets: [{
+                        data: [available, expenses, savings],
+                        backgroundColor: ['#10b981', '#f43f5e', '#06b6d4'],
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { grid: { color: 'rgba(156, 163, 175, 0.1)' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
